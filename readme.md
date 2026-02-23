@@ -1,4 +1,8 @@
 ﻿# Plague Inc. Multiplayer Backend Service
+<p align="center">
+  <img src="images/vs.png" alt="logo" width="200"/>
+<img src="images/coop.png" alt="logo" width="200"/>
+</p>
 
 <div align="center">
 

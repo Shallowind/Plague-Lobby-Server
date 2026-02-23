@@ -389,6 +389,4 @@ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
 
 **Made with ❤️ for Plague Inc. Multiplayer Community**
 
-[Report Issue](https://github.com/yourorg/plague-inc-backend/issues) • [View Docs](https://docs.yourorg.com/plague-inc) • [Discord](https://discord.gg/yourlink)
-
 </div>

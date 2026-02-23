@@ -1,0 +1,6 @@
+@PlagueLobby_HostAddress = http://localhost:5225
+
+GET {{PlagueLobby_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

@@ -41,33 +41,68 @@
 ```mermaid
 flowchart TB
 
-    Client["🎮 Plague Inc Client"]
+%% =========================
+%% Style
+%% =========================
+classDef client fill:#e3f2fd,stroke:#1e88e5,stroke-width:2px
+classDef network fill:#ede7f6,stroke:#673ab7,stroke-width:2px
+classDef server fill:#e8f5e9,stroke:#43a047,stroke-width:2px
+classDef relay fill:#ffebee,stroke:#e53935,stroke-width:2px
+classDef storage fill:#fff3e0,stroke:#fb8c00,stroke-width:2px
 
-    subgraph Network["Network Layer"]
-        RelayPort["TCP :27777\nRelay Connection"]
-        LobbyPort["HTTP :38888\nLobby API"]
-    end
+%% =========================
+%% Client Layer
+%% =========================
+subgraph CLIENT["Client Layer"]
+    GAME["Plague Inc Client"]
+end
+class GAME client
 
-    subgraph Backend["Backend Services"]
-        Relay["Relay Server\nRealtime Packet Forwarding"]
-        Lobby["Lobby Server\nRoom & Player Management"]
-    end
+%% =========================
+%% Network Layer
+%% =========================
+subgraph NETWORK["Network Transport"]
+    HTTP["HTTP API :38888"]
+    TCP["TCP Relay :27777"]
+end
+class HTTP,TCP network
 
-    subgraph Storage["Data Persistence"]
-        Stats["player_stats.json"]
-        Names["player_names.json"]
-        Logs["server.log"]
-    end
+%% =========================
+%% Backend Services
+%% =========================
+subgraph BACKEND["Backend Services"]
+    LOBBY["Lobby Server
+ASP.NET Core"]
 
-    Client --> RelayPort
-    Client --> LobbyPort
+    RELAY["Relay Server
+TCP Socket Forwarding"]
+end
 
-    RelayPort --> Relay
-    LobbyPort --> Lobby
+class LOBBY server
+class RELAY relay
 
-    Lobby --> Stats
-    Lobby --> Names
-    Lobby --> Logs
+%% =========================
+%% Storage
+%% =========================
+subgraph STORAGE["Data Persistence"]
+    JSON1["player_stats.json"]
+    JSON2["player_names.json"]
+    LOG["server.log"]
+end
+class JSON1,JSON2,LOG storage
+
+%% =========================
+%% Flow
+%% =========================
+GAME --> HTTP
+GAME --> TCP
+
+HTTP --> LOBBY
+TCP --> RELAY
+
+LOBBY --> JSON1
+LOBBY --> JSON2
+LOBBY --> LOG
 ```
 
 系统采用 **Lobby + Relay 双服务拆分结构**：

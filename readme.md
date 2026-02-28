@@ -42,60 +42,58 @@
 flowchart TB
 
 %% =========================
-%% Style
+%% Style Definitions
 %% =========================
-classDef client fill:#e3f2fd,stroke:#1e88e5,stroke-width:2px
-classDef network fill:#ede7f6,stroke:#673ab7,stroke-width:2px
-classDef server fill:#e8f5e9,stroke:#43a047,stroke-width:2px
-classDef relay fill:#ffebee,stroke:#e53935,stroke-width:2px
-classDef storage fill:#fff3e0,stroke:#fb8c00,stroke-width:2px
+classDef client fill:#e3f2fd,stroke:#1e88e5,stroke-width:2px,color:#0d47a1
+classDef network fill:#ede7f6,stroke:#673ab7,stroke-width:2px,color:#311b92
+classDef lobby fill:#e8f5e9,stroke:#43a047,stroke-width:2px,color:#1b5e20
+classDef relay fill:#ffebee,stroke:#e53935,stroke-width:2px,color:#b71c1c
+classDef storage fill:#fff3e0,stroke:#fb8c00,stroke-width:2px,color:#e65100
 
 %% =========================
 %% Client Layer
 %% =========================
-subgraph CLIENT["Client Layer"]
-    GAME["Plague Inc Client"]
+subgraph CLIENT["🎮 Client Layer / 游戏客户端"]
+    GAME["Plague Inc 联机客户端<br/>Game Client"]
 end
 class GAME client
 
 %% =========================
 %% Network Layer
 %% =========================
-subgraph NETWORK["Network Transport"]
-    HTTP["HTTP API :38888"]
-    TCP["TCP Relay :27777"]
+subgraph NETWORK["🌐 Network Transport / 网络通信层"]
+    HTTP["HTTP API<br/>Port 38888"]
+    TCP["TCP Relay<br/>Port 27777"]
 end
 class HTTP,TCP network
 
 %% =========================
 %% Backend Services
 %% =========================
-subgraph BACKEND["Backend Services"]
-    LOBBY["Lobby Server
-ASP.NET Core"]
+subgraph BACKEND["⚙ Backend Services / 后端服务"]
+    LOBBY["Lobby Server<br/>大厅管理 / 玩家状态<br/>ASP.NET Core"]
 
-    RELAY["Relay Server
-TCP Socket Forwarding"]
+    RELAY["Relay Server<br/>实时数据转发<br/>TCP Socket"]
 end
 
-class LOBBY server
+class LOBBY lobby
 class RELAY relay
 
 %% =========================
-%% Storage
+%% Storage Layer
 %% =========================
-subgraph STORAGE["Data Persistence"]
-    JSON1["player_stats.json"]
-    JSON2["player_names.json"]
-    LOG["server.log"]
+subgraph STORAGE["💾 Data Persistence / 数据存储"]
+    JSON1["player_stats.json<br/>玩家战绩"]
+    JSON2["player_names.json<br/>玩家昵称"]
+    LOG["server.log<br/>运行日志"]
 end
 class JSON1,JSON2,LOG storage
 
 %% =========================
-%% Flow
+%% Data Flow
 %% =========================
-GAME --> HTTP
-GAME --> TCP
+GAME -->|"Lobby 请求"| HTTP
+GAME -->|"实时对战数据"| TCP
 
 HTTP --> LOBBY
 TCP --> RELAY

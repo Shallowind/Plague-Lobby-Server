@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("PlagueServer")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+91e5394868e78273d76c9e5f88ed71827fb06fdc")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+a90f436e6a9a0f16634582168fcfa9cadc7d716e")]
 [assembly: System.Reflection.AssemblyProductAttribute("PlagueServer")]
 [assembly: System.Reflection.AssemblyTitleAttribute("PlagueServer")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

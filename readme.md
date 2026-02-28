@@ -1,361 +1,238 @@
-﻿# Plague Inc. Multiplayer Backend Service
+﻿
+# Plague Inc. Multiplayer Backend Service
+
 <p align="center">
-  <img src="images/vs.png" alt="logo" width="200"/>
-<img src="images/coop.png" alt="logo" width="200"/>
+  <img src="images/vs.png" width="200"/>
+  <img src="images/coop.png" width="200"/>
 </p>
 
 <div align="center">
 
-[![.NET](https://img.shields.io/badge/.NET-6.0%2B-512BD4?logo=dotnet)](https://dotnet.microsoft.com/)
-[![C#](https://img.shields.io/badge/C%23-12.0-239120?logo=c-sharp)](https://docs.microsoft.com/en-us/dotnet/csharp/)
+[![.NET](https://img.shields.io/badge/.NET-8.0-512BD4?logo=dotnet)](https://dotnet.microsoft.com/)
+[![C#](https://img.shields.io/badge/C%23-12.0-239120?logo=c-sharp)](https://learn.microsoft.com/dotnet/csharp/)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Status](https://img.shields.io/badge/Status-Production%20Ready-brightgreen)]()
-[![Performance](https://img.shields.io/badge/Throughput-10K%2B%20Concurrent-blue)]()
+[![Status](https://img.shields.io/badge/Status-Running-success)]()
 
-**企业级联机游戏后端解决方案 | Enterprise-Grade Multiplayer Game Backend**
+**Lightweight Multiplayer Game Backend**
 
-专为 Plague Inc. 联机优化版客户端设计的高性能、低延迟、高可用的多人在线游戏服务集群。
-
-[快速开始](#-开发指南) • [架构文档](#-系统架构概览) • [运维指南](#-部署与运维)
+为《瘟疫公司》联机客户端提供大厅管理与实时通信支持的轻量级后端服务。
 
 </div>
 
 ---
 
-## 📋 系统架构概览
+## 📋 项目概述
 
-<div align="center">
-  <img src="images/diagram.png" alt="系统架构图" width="85%"/>
-  <p><em>Plague Inc. 联机服务架构 — Relay Server 处理实时P2P中继，Lobby Server 提供RESTful状态管理</em></p>
-</div>
+本项目是一个个人实现的多人联机游戏后端，用于支持《瘟疫公司》联机补丁的在线对战功能。
 
-### 架构设计原则
+项目目标并非构建高并发商业游戏服务器，而是完成：
 
-| 原则 | 实现方式 | 收益 |
-|-----|---------|------|
-| **分离关注点** | Relay(实时传输) vs Lobby(状态管理) 独立部署 | 故障隔离，独立扩缩容 |
-| **无状态设计** | Lobby Server 不保存会话状态，依赖客户端心跳 | 支持水平扩展，快速故障恢复 |
-| **防御性编程** | 包大小限制、连接状态机、超时清理 | 防止资源耗尽，保障服务稳定性 |
+* 实时网络通信服务设计
+* 游戏大厅生命周期管理
+* 长连接服务稳定运行
+* 低成本云服务器部署实践
+
+当前服务已长期运行在公网服务器环境中。
+
+---
+
+## 🏗 系统架构概览
+
+<p align="center">
+  <img src="images/diagram.png" width="85%"/>
+</p>
+
+系统采用 **Lobby + Relay 双服务拆分结构**：
+
+| 服务               | 职责             | 通信方式      |
+| ---------------- | -------------- | --------- |
+| **Lobby Server** | 大厅管理、玩家信息、状态查询 | HTTP REST |
+| **Relay Server** | 游戏实时数据中继       | TCP 长连接   |
+
+设计目的：
+
+* 将实时通信与业务逻辑解耦
+* 降低单服务复杂度
+* 便于后续扩展或独立优化
 
 ---
 
 ## 🚀 核心服务组件
 
-### 1. Relay Server — 实时传输引擎
 
-> **职责**: 处理客户端间二进制数据包的中继转发，保障对战实时性
+### Relay Server — 实时通信中继
 
-#### 技术规格
+负责客户端之间的游戏数据转发。
 
-| 属性 | 规格 |
-|------|------|
-| **传输协议** | 自定义二进制协议 (Little Endian) |
-| **并发模型** | 异步 I/O + 线程池 (ThreadPool.QueueUserWorkItem) |
-| **连接管理** | 状态机驱动 (Connecting → Active → Closing → Closed) |
-| **心跳机制** | 15s 间隔 PING/PONG，120s 超时断开 |
-| **安全策略** | 包大小硬限制 1MB，SteamID 身份绑定 |
-| **默认端口** | `27777/tcp` (运行时参数可覆盖) |
+#### 实现特点
 
-#### 协议规范
+* 基于 TCP Socket
+* 自定义二进制协议
+* 长连接通信
+* 心跳检测与超时断开
+* 数据包大小限制防止异常占用
 
-```csharp
-// RelayPacket 结构 (C# 伪代码)
-[StructLayout(LayoutKind.Sequential, Pack = 1)]
-public struct RelayPacket 
-{
-    [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)]
-    public string SenderID;      // 发送者 SteamID64
-    
-    [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)]
-    public string TargetID;      // 目标 SteamID64 或 "SERVER" 广播
-    
-    public byte Channel;         // 逻辑通道标识 (0-255)
-    
-    [MarshalAs(UnmanagedType.ByValArray, SizeConst = 1024*1024)]
-    public byte[] Data;          // 有效载荷 (变长，最大 1MB)
-}
+连接生命周期：
+
+```
+Connecting → Active → Timeout → Closed
 ```
 
-#### 性能基准
+当前实现以 **稳定与易维护优先**：
 
-```bash
-# 测试环境: AWS c5.2xlarge (8 vCPU, 16GB RAM)
-# 测试工具: Custom TCP Load Generator
+* 每连接独立处理收发逻辑
+* 未引入 IOCP / epoll 等复杂模型
+* 方便调试与问题定位
 
-并发连接数:     10,000
-消息吞吐量:     45,000 msg/sec (1KB payload)
-平均延迟:       8.2ms (P50) / 23ms (P99)
-CPU 使用率:     62%
-内存占用:       2.1GB
-```
+适用于中小规模在线场景。
 
 ---
 
-### 2. Lobby Server — 状态管理服务
+### Lobby Server — 大厅管理服务
 
-> **职责**: 提供 RESTful API 用于大厅生命周期管理与玩家元数据查询
+提供 HTTP API 用于管理游戏会话。
 
 #### 技术栈
 
-| 组件 | 选型 | 版本 |
-|-----|------|------|
-| 运行时 | .NET | 8.0 LTS |
-| Web 框架 | ASP.NET Core | 8.0 |
-| 序列化 | Newtonsoft.Json | 13.0.3 |
-| 日志 | Serilog | 3.1.1 |
-| 文档 | Swagger/OpenAPI | 6.5.0 |
+| 组件            | 技术              |
+| ------------- | --------------- |
+| Runtime       | .NET 8          |
+| Framework     | ASP.NET Core    |
+| Serialization | Newtonsoft.Json |
+| Logging       | Serilog         |
+| API 文档        | Swagger         |
 
-#### API 端点规范
+主要功能：
 
-<details>
-<summary>📁 大厅管理 (Lobby Management)</summary>
-
-| 端点 | 方法 | 描述 | 请求体 | 响应 |
-|------|------|------|--------|------|
-| `/lobby/create` | POST | 创建游戏大厅 | `CreateLobbyRequest` | `Lobby` |
-| `/lobby/join` | POST | 加入指定大厅 | `JoinLobbyRequest` | `Lobby` |
-| `/lobby/leave` | POST | 离开当前大厅 | `LeaveLobbyRequest` | `204 No Content` |
-| `/lobby/list` | GET | 搜索大厅列表 | Query: `type`, `region`, `eloRange` | `Lobby[]` |
-| `/lobby/poll` | GET | 长轮询状态更新 | Query: `lobbyId`, `lastSequence` | `LobbyState` |
-
-</details>
-
-<details>
-<summary>👤 玩家数据 (Player Data)</summary>
-
-| 端点 | 方法 | 描述 | 认证 |
-|------|------|------|------|
-| `/player/stats` | GET | 查询玩家战绩 (ELO, 胜率, 总局数) | SteamID Header |
-| `/player/stats` | POST | 更新战后统计 | SteamID + 签名验证 |
-| `/player/name` | GET | 获取玩家显示名称 | 公开 |
-| `/player/name` | POST | 注册/更新玩家名称 | SteamID 绑定 |
-
-</details>
-
-<details>
-<summary>🔧 系统运维 (Administration)</summary>
-
-| 端点 | 方法 | 描述 | 权限 |
-|------|------|------|------|
-| `/api/server/status` | GET | 健康检查与指标 | 公开 |
-| `/api/lobbies/detailed` | GET | 详细大厅信息 (Dashboard 数据源) | 公开 |
-| `/api/admin/kick-player` | POST | 强制移除玩家 | `?op=true` + IP 白名单 |
-
-</details>
-
-#### 数据持久化
-
-```json
-// player_stats.json 结构示例
-{
-  "76561198000000001": {
-    "steamId": "76561198000000001",
-    "elo": 1847,
-    "wins": 156,
-    "losses": 89,
-    "totalGames": 245,
-    "winRate": 0.637,
-    "lastUpdated": "2024-02-23T14:32:18Z"
-  }
-}
-```
+* 创建 / 加入大厅
+* 玩家状态维护
+* 房间列表查询
+* 战绩信息管理
+* 服务状态监控接口
 
 ---
 
-## ⚙️ 非功能性需求
+## 💾 数据持久化方案
 
-### 性能指标 (SLA)
+为降低部署成本与复杂度，项目采用轻量存储方案：
 
-| 指标 | 目标值 | 测量方法 |
-|------|--------|---------|
-| Relay 可用性 | 99.95% | 30天滚动窗口 |
-| Lobby API P99 延迟 | < 100ms | 每分钟采样 |
-| 消息投递成功率 | 99.99% | 客户端确认机制 |
-| 故障恢复时间 (RTO) | < 30s | 自动重启 + 状态重建 |
+| 数据   | 存储方式    |
+| ---- | ------- |
+| 玩家统计 | JSON 文件 |
+| 玩家名称 | JSON 文件 |
+| 在线大厅 | 内存结构    |
+| 持久化  | 定时写盘    |
 
-### 资源规格
+优势：
 
-| 服务 | 最小配置 | 推荐配置 | 最大并发 |
-|------|---------|---------|---------|
-| Relay Server | 2 vCPU / 2GB RAM | 4 vCPU / 4GB RAM | 10,000 连接 |
-| Lobby Server | 1 vCPU / 1GB RAM | 2 vCPU / 2GB RAM | 5,000 QPS |
+* 无数据库依赖
+* 单机部署简单
+
+限制：
+
+* 不支持多实例共享状态
+* 服务重启期间存在短暂状态恢复过程
 
 ---
 
-## 📦 部署与运维
+## ⚙️ 实际部署环境
 
-### 快速启动 (开发环境)
+### 服务器配置
+
+| 项目   | 配置                  |
+| ---- |---------------------|
+| CPU  | 2 vCPU              |
+| 内存   | 2 GB                |
+| 系统   | Windows Server 2012 |
+| 带宽   | ≈3 Mbps             |
+| 部署方式 | 直接 dotnet 运行        |
 
 ```bash
-# 克隆仓库
-git clone https://github.com/yourorg/plague-inc-backend.git
-cd plague-inc-backend
+dotnet LobbyServer.dll --urls "http://0.0.0.0:38888"
+dotnet RelayServer.dll --port 27777
+```
 
-# 还原依赖
+未使用容器化部署，主要考虑低配置服务器的资源占用。
+
+---
+
+## 📊 实际运行表现
+
+在上述环境中：
+
+* 稳定支持 **30–50 名玩家同时在线**
+* CPU 使用率约 40%–60%
+* 内存占用约 800MB–1.2GB
+
+当前主要限制因素：
+
+* 服务器带宽
+* Relay 线程模型的资源开销
+
+项目定位：
+
+> 面向小规模真实在线运行场景，而非高并发商业部署。
+
+---
+
+## 🔒 稳定性设计
+
+已实现的基础保护机制：
+
+* TCP 心跳检测
+* 空闲连接清理
+* 数据包大小限制
+* 异常连接释放
+* 定时数据持久化
+* 服务健康检查接口
+
+用于保证长期运行稳定性。
+
+---
+
+## 📦 部署说明
+
+### 构建
+
+```bash
 dotnet restore
-
-# 编译 Release
-dotnet publish -c Release -o ./publish \
-    --self-contained false \
-    -p:PublishSingleFile=false
-
-# 启动服务 (终端1)
-dotnet ./publish/RelayServer.dll --port 27777
-
-# 启动服务 (终端2)  
-dotnet ./publish/LobbyServer.dll --urls "http://0.0.0.0:38888"
+dotnet publish -c Release -o ./publish
 ```
 
-### 生产部署 (Docker)
-
-```dockerfile
-# Dockerfile.relay
-FROM mcr.microsoft.com/dotnet/runtime:8.0-alpine AS base
-WORKDIR /app
-COPY ./publish/RelayServer.dll .
-EXPOSE 27777
-ENTRYPOINT ["dotnet", "RelayServer.dll"]
-```
-
-```yaml
-# docker-compose.yml
-version: '3.8'
-
-services:
-  relay:
-    build:
-      context: .
-      dockerfile: Dockerfile.relay
-    ports:
-      - "27777:27777"
-    environment:
-      - RELAY_PORT=27777
-      - LOG_LEVEL=Information
-    deploy:
-      resources:
-        limits:
-          cpus: '2.0'
-          memory: 2G
-    restart: unless-stopped
-
-  lobby:
-    build:
-      context: .
-      dockerfile: Dockerfile.lobby
-    ports:
-      - "38888:38888"
-    volumes:
-      - ./data:/app/data
-      - ./logs:/app/logs
-    environment:
-      - ASPNETCORE_URLS=http://0.0.0.0:38888
-      - DATA_PATH=/app/data
-    restart: unless-stopped
-```
-
-### 监控与告警
+### 启动
 
 ```bash
-# 健康检查端点
-curl http://localhost:38888/api/server/status
-
-# 预期响应
-{
-  "status": "healthy",
-  "timestamp": "2024-02-23T14:32:18.452Z",
-  "version": "1.2.0",
-  "relay": {
-    "activeConnections": 842,
-    "totalMessagesRelayed": 15293481
-  },
-  "lobby": {
-    "activeLobbies": 23,
-    "onlinePlayers": 67
-  }
-}
+dotnet ./publish/RelayServer.dll
+dotnet ./publish/LobbyServer.dll
 ```
 
 ---
 
-## 🔒 安全架构
+## 📈 后续优化方向
 
-### 威胁模型与缓解措施
+未来计划改进方向：
 
-| 威胁 | 风险等级 | 缓解策略 |
-|------|---------|---------|
-| DDoS 攻击 (SYN Flood) | 高 | 连接数限制 + 速率限制 + CloudFlare Spectrum |
-| 数据包伪造 | 中 | SteamID 签名验证 + 会话令牌绑定 |
-| 敏感信息泄露 | 中 | 日志脱敏 + 最小权限原则 |
-| 中间人攻击 | 低 | (未来) TLS 1.3 加密传输 |
+### 网络层
 
-### 网络安全组规则
+* 使用 SocketAsyncEventArgs
+* 降低线程数量
+* 提升连接密度
 
-| 端口 | 协议 | 源 | 用途 |
-|------|------|-----|------|
-| 27777 | TCP | 0.0.0.0/0 | 客户端游戏连接 |
-| 38888 | TCP | 0.0.0.0/0 | HTTP API + Dashboard |
-| 38888 | TCP | 10.0.0.0/8 | 内部监控 (Admin API) |
+### 架构层
 
----
+* Relay 多实例支持
+* 状态服务外置（Redis）
 
-## 📊 故障排查手册
+### 数据层
 
-### 诊断流程图
+* JSON → SQLite/PostgreSQL
+* 更安全的数据更新策略
 
-```
-客户端无法连接
-    │
-    ├─→ 检查网络连通性 ──→ ping <server_ip>
-    │       │
-    │       └─ 不通 ──→ 检查安全组/防火墙规则
-    │
-    └─→ 检查服务状态 ──→ curl http://<server>:38888/api/server/status
-            │
-            ├─ 无响应 ──→ 查看服务日志: docker logs plague-lobby
-            │
-            └─ 正常 ──→ 检查客户端版本兼容性
-```
+### 运维
 
-### 常见错误码
+* Docker 化部署
+* 基础监控与日志聚合
 
-| 错误码 | 场景 | 解决方案 |
-|--------|------|---------|
-| `RELAY_CONN_REJECTED` | 连接数超限 | 扩容 Relay 实例或启用负载均衡 |
-| `LOBBY_FULL` | 大厅人数已达上限 | 客户端提示用户选择其他大厅 |
-| `STEAMID_MISMATCH` | 身份验证失败 | 检查 Steam 令牌有效性 |
-| `RATE_LIMITED` | API 请求过于频繁 | 客户端实现指数退避重试 |
-
----
-
-## 🛠️ 开发指南
-
-### 本地调试
-
-```bash
-# 使用 Visual Studio / VS Code
-# 1. 设置多启动项目
-# 2. 配置 launch.json
-
-{
-    "version": "0.2.0",
-    "compounds": [
-        {
-            "name": "Relay + Lobby",
-            "configurations": ["RelayServer", "LobbyServer"]
-        }
-    ]
-}
-```
-
-### 运行测试
-
-```bash
-# 单元测试
-dotnet test ./tests/PlagueInc.Backend.Tests.csproj
-
-# 集成测试 (需要 Docker)
-docker-compose -f docker-compose.test.yml up --abort-on-container-exit
-```
 
 ---
 

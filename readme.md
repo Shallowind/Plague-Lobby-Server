@@ -53,7 +53,7 @@ classDef storage fill:#fff3e0,stroke:#fb8c00,stroke-width:2px,color:#e65100
 %% =========================
 %% Client Layer
 %% =========================
-subgraph CLIENT["🎮 Client Layer / 游戏客户端"]
+subgraph CLIENT["🎮 游戏客户端"]
     GAME["Plague Inc 联机客户端<br/>Game Client"]
 end
 class GAME client
@@ -61,7 +61,7 @@ class GAME client
 %% =========================
 %% Network Layer
 %% =========================
-subgraph NETWORK["🌐 Network Transport / 网络通信层"]
+subgraph NETWORK["🌐 网络通信层"]
     HTTP["HTTP API<br/>Port 38888"]
     TCP["TCP Relay<br/>Port 27777"]
 end
@@ -70,7 +70,7 @@ class HTTP,TCP network
 %% =========================
 %% Backend Services
 %% =========================
-subgraph BACKEND["⚙ Backend Services / 后端服务"]
+subgraph BACKEND["⚙ 后端服务"]
     LOBBY["Lobby Server<br/>大厅管理 / 玩家状态<br/>ASP.NET Core"]
 
     RELAY["Relay Server<br/>实时数据转发<br/>TCP Socket"]
@@ -82,7 +82,7 @@ class RELAY relay
 %% =========================
 %% Storage Layer
 %% =========================
-subgraph STORAGE["💾 Data Persistence / 数据存储"]
+subgraph STORAGE["💾 数据存储"]
     JSON1["player_stats.json<br/>玩家战绩"]
     JSON2["player_names.json<br/>玩家昵称"]
     LOG["server.log<br/>运行日志"]

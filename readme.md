@@ -38,9 +38,37 @@
 
 ## 🏗 系统架构概览
 
-<p align="center">
-  <img src="images/diagram.png" width="85%"/>
-</p>
+```mermaid
+flowchart TB
+
+    Client["🎮 Plague Inc Client"]
+
+    subgraph Network["Network Layer"]
+        RelayPort["TCP :27777\nRelay Connection"]
+        LobbyPort["HTTP :38888\nLobby API"]
+    end
+
+    subgraph Backend["Backend Services"]
+        Relay["Relay Server\nRealtime Packet Forwarding"]
+        Lobby["Lobby Server\nRoom & Player Management"]
+    end
+
+    subgraph Storage["Data Persistence"]
+        Stats["player_stats.json"]
+        Names["player_names.json"]
+        Logs["server.log"]
+    end
+
+    Client --> RelayPort
+    Client --> LobbyPort
+
+    RelayPort --> Relay
+    LobbyPort --> Lobby
+
+    Lobby --> Stats
+    Lobby --> Names
+    Lobby --> Logs
+```
 
 系统采用 **Lobby + Relay 双服务拆分结构**：
 
